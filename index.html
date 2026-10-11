@@ -1037,6 +1037,14 @@
 
       showToast(`Alerting Network & Responders...`);
 
+      // Automatic server-side SMS (Twilio via /api/sos). WhatsApp link below stays as the fallback.
+      try {
+        fetch('/api/sos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+          body: JSON.stringify({ name: user.name || '', contacts: contacts.map(c => c.phone), location_url: link, battery: String(deviceBattery) }) })
+          .then(r => showToast(r.ok ? 'SMS alert sent to your contacts' : 'Auto-SMS unavailable - use WhatsApp'))
+          .catch(() => showToast('Auto-SMS unavailable - use WhatsApp'));
+      } catch (e) {}
+
       // DIRECT WHATSAPP BYPASS
       if (contacts.length > 0) {
         let phone = contacts[0].phone.replace(/\D/g, ''); if (phone.length === 10) phone = '91' + phone;
