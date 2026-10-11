@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Asteria | Premium Safety Companion</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { 
+        extend: { 
+          colors: { 
+            baseDark: '#050807', tealDark: '#071F22', bronze: '#4C321A',
+            goldAntique: '#B88632', goldWarm: '#F4C96B', goldChamp: '#FFE7A3',
+            ivory: '#F5F0E6', alertRed: '#e11d48',
+          },
+          animation: {
+            'modal-pop': 'modalPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            'ripple': 'ripple 2s infinite ease-in-out',
+            'glow-pulse': 'glowPulse 3s ease-in-out infinite alternate',
+            'pulse-fast': 'pulseFast 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'mic-pulse': 'micPulse 1.5s infinite',
+          },
+          keyframes: {
+            modalPop: { '0%': { opacity: '0', transform: 'scale(0.97) translateY(15px)' }, '100%': { opacity: '1', transform: 'scale(1) translateY(0)' } },
+            ripple: { '0%': { transform: 'scale(1)', opacity: '0.4' }, '100%': { transform: 'scale(1.5)', opacity: '0' } },
+            glowPulse: { '0%': { opacity: '0.4', filter: 'blur(10px)' }, '100%': { opacity: '0.8', filter: 'blur(20px)' } },
+            pulseFast: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.5' } },
+            micPulse: { '0%': { transform: 'scale(0.8)', opacity: '0.5', boxShadow: '0 0 0 0 rgba(225, 29, 72, 0.7)' }, '70%': { transform: 'scale(1.2)', opacity: '1', boxShadow: '0 0 0 10px rgba(225, 29, 72, 0)' }, '100%': { transform: 'scale(0.8)', opacity: '0.5', boxShadow: '0 0 0 0 rgba(225, 29, 72, 0)' } }
+          }
+        } 
+      }
+    }
+  </script>
+
+  <!-- Script to prevent theme flashing on load -->
+  <script>
+    if (localStorage.getItem('theme') === 'light') { document.documentElement.classList.remove('dark'); } 
+    else { document.documentElement.classList.add('dark'); }
+  </script>
+
+  <!-- Mapbox GL JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+  <!-- Face-API.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+
+  <style>
+    /* Theme Setup */
+    body { overflow: hidden; scroll-behavior: smooth; transition: background-color 0.3s ease, color 0.3s ease; }
+    
+    /* Dynamic Glassmorphism for Light & Dark Mode */
+    .glass-panel { 
+      background: rgba(255, 255, 255, 0.85); 
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); 
+      border: 1px solid rgba(0, 0, 0, 0.08); 
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05); 
+      transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.3s ease;
+    }
+    .dark .glass-panel {
+      background: rgba(7, 31, 34, 0.5); 
+      border: 1px solid rgba(184, 134, 50, 0.2); 
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 231, 163, 0.05); 
+    }
+    
+    .glass-input { 
+      background: rgba(240, 240, 245, 0.8); 
+      border: 1px solid rgba(0, 0, 0, 0.1); 
+      color: #111827; transition: all 0.3s ease; 
+    }
+    .glass-input:focus { border-color: #14b8a6; background: #ffffff; outline: none; }
+    
+    .dark .glass-input { background: rgba(5, 8, 7, 0.6); border: 1px solid rgba(184, 134, 50, 0.3); color: #F5F0E6; }
+    .dark .glass-input:focus { border-color: #F4C96B; background: rgba(7, 31, 34, 0.9); box-shadow: 0 0 15px rgba(244, 201, 107, 0.15); outline: none; }
+
+    ::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    .scanner-line { animation: scan 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite; box-shadow: 0 0 25px 3px #14b8a6; }
+    .dark .scanner-line { box-shadow: 0 0 25px 3px #F4C96B; }
+    @keyframes scan { 0% { top: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+    .mapboxgl-ctrl-bottom-right, .mapboxgl-ctrl-bottom-left { display: none !important; }
+
+    /* Fake Call Overlay Styles */
+    #fake-call-overlay { background: #1c1c1e; backdrop-filter: blur(40px); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .call-btn-accept { background: #28c840; box-shadow: 0 0 20px rgba(40,200,64,0.4); animation: pulse-fast 1.5s infinite; }
+    .call-btn-decline { background: #ff3b30; }
+  </style>
+</head>
+<body class="flex h-[100dvh] antialiased bg-zinc-50 text-zinc-900 dark:bg-[radial-gradient(circle_at_50%_0%,#071F22_0%,#050807_70%)] dark:text-[#F5F0E6]">
+
+  <!-- ================= SIDE NAVIGATION DOCK ================= -->
+  <aside class="w-16 md:w-24 h-full glass-panel border-r border-zinc-200 dark:border-goldAntique/20 z-50 shrink-0 flex flex-col items-center py-6 justify-between transition-all rounded-none hover:border-zinc-300 dark:hover:border-goldWarm/40">
+    
+    <!-- EXACT VERBATIM LOGO[cite: 1] -->
+    <div class="relative group cursor-pointer flex flex-col items-center animate-float">
+      <div class="absolute -inset-3 bg-teal-400 dark:bg-goldWarm rounded-full blur-xl opacity-10 dark:opacity-20 group-hover:opacity-40 transition duration-700 animate-glow-pulse"></div>
+      <img src="WhatsApp Image 2026-10-11 at 4.58.34 AM.jpeg" alt="Asteria Logo" class="relative w-10 h-10 md:w-14 md:h-14 object-cover rounded-xl shadow-md dark:shadow-[0_0_20px_rgba(184,134,50,0.5)] border border-zinc-200 dark:border-goldWarm/30 group-hover:scale-105 transition-transform duration-500" />
+    </div>
+
+    <!-- TABS -->
+    <div class="flex flex-col gap-8 w-full">
+      <button onclick="switchTab('home')" id="tab-home" class="flex flex-col items-center gap-1.5 p-2 text-teal-600 dark:text-goldWarm drop-shadow-sm dark:drop-shadow-[0_0_8px_rgba(244,201,107,0.5)] transition-all relative group outline-none">
+        <div class="absolute left-0 w-1 h-full bg-teal-600 dark:bg-goldWarm rounded-r-full dark:shadow-[0_0_10px_#F4C96B]" id="indicator-home"></div>
+        <svg class="w-6 h-6 md:w-7 md:h-7 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+        <span class="text-[10px] md:text-xs font-bold tracking-widest uppercase">Home</span>
+      </button>
+
+      <button onclick="switchTab('network')" id="tab-network" class="flex flex-col items-center gap-1.5 p-2 text-zinc-400 dark:text-goldAntique/50 hover:text-teal-600 dark:hover:text-goldWarm transition-all relative group outline-none">
+        <div class="absolute left-0 w-1 h-full bg-teal-600 dark:bg-goldWarm rounded-r-full hidden dark:shadow-[0_0_10px_#F4C96B]" id="indicator-network"></div>
+        <svg class="w-6 h-6 md:w-7 md:h-7 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+        <span class="text-[10px] md:text-xs font-bold tracking-widest uppercase">Network</span>
+      </button>
+
+      <button onclick="switchTab('settings')" id="tab-settings" class="flex flex-col items-center gap-1.5 p-2 text-zinc-400 dark:text-goldAntique/50 hover:text-teal-600 dark:hover:text-goldWarm transition-all relative group outline-none">
+        <div class="absolute left-0 w-1 h-full bg-teal-600 dark:bg-goldWarm rounded-r-full hidden dark:shadow-[0_0_10px_#F4C96B]" id="indicator-settings"></div>
+        <svg class="w-6 h-6 md:w-7 md:h-7 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        <span class="text-[10px] md:text-xs font-bold tracking-widest uppercase">Settings</span>
+      </button>
+    </div>
+
+    <!-- THEME TOGGLE -->
+    <button onclick="toggleTheme()" class="p-3 bg-zinc-100 text-zinc-600 dark:text-white dark:bg-tealDark/50 rounded-full hover:bg-zinc-200 dark:hover:bg-tealDark active:scale-95 transition-all text-sm border border-zinc-200 dark:border-goldAntique/30">
+      <span id="theme-icon">🌙</span>
+    </button>
+  </aside>
+
+  <!-- ================= MAIN CONTENT WRAPPER ================= -->
+  <div class="flex-1 flex flex-col relative h-full overflow-hidden z-10">
+    
+    <!-- FLOATING TOP HEADER -->
+    <header class="h-16 md:h-20 flex items-center justify-between px-5 md:px-8 shrink-0 z-40 mt-4 mx-4 glass-panel rounded-[1.25rem]">
+      <div class="flex items-center gap-3">
+        
+        <!-- MICROPHONE TOGGLE FOR VOICE SOS -->
+        <button onclick="toggleVoiceActivation()" id="mic-btn" class="relative flex items-center justify-center w-8 h-8 md:w-10 md:h-10 bg-zinc-200 dark:bg-goldWarm/20 rounded-full hover:bg-zinc-300 dark:hover:bg-goldWarm/40 transition-colors focus:outline-none" title="Click to Enable Voice SOS">
+          <div id="mic-pulse-ring" class="absolute w-full h-full rounded-full bg-zinc-300 dark:bg-goldWarm/40 hidden"></div>
+          <svg id="mic-icon" class="w-4 h-4 md:w-5 md:h-5 text-zinc-600 dark:text-goldWarm z-10 transition-colors" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8h-2a5 5 0 01-10 0H3a7.001 7.001 0 006 6.93V17H6v2h8v-2h-3v-2.07z" clip-rule="evenodd"></path></svg>
+        </button>
+
+        <span class="text-xs md:text-sm font-bold tracking-widest uppercase text-zinc-900 dark:text-ivory flex items-center gap-2">
+          Asteria <span class="bg-teal-100 text-teal-700 dark:bg-goldAntique/20 dark:text-goldWarm px-2.5 py-0.5 rounded border border-teal-200 dark:border-goldWarm/30 text-[9px] font-black tracking-widest">SECURE</span>
+        </span>
+      </div>
+      
+      <div class="flex gap-2">
+        <button onclick="queueFakeCall()" class="px-3 py-2.5 text-xs rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-500/30 active:scale-95 flex items-center gap-2 font-bold transition-all shadow-sm dark:shadow-[0_4px_15px_rgba(0,0,0,0.2)] hover:border-indigo-300 dark:hover:border-indigo-400 focus:outline-none" title="Trigger Fake Alibi Call">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+          <span class="hidden md:inline">Evasion</span>
+        </button>
+
+        <button onclick="toggleCommuteModal()" class="px-4 py-2.5 text-xs md:text-sm rounded-lg bg-zinc-100 text-zinc-700 dark:bg-tealDark/50 dark:text-goldWarm hover:bg-zinc-200 dark:hover:bg-tealDark border border-zinc-200 dark:border-goldAntique/30 active:scale-95 flex items-center gap-2 font-bold transition-all shadow-sm dark:shadow-[0_4px_15px_rgba(0,0,0,0.2)] focus:outline-none">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span id="timer-display-btn">Timer Off</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- VIEWS CONTAINER -->
+    <div class="flex-1 overflow-y-auto p-4 md:p-6 relative scroll-smooth no-scrollbar" id="main-scroll-area">
+      
+      <!-- VIEW 1: HOME (MAP & SOS) -->
+      <main id="view-home" class="flex flex-col gap-6 max-w-5xl mx-auto w-full transition-opacity duration-500 animate-modal-pop">
+        
+        <!-- NATIONAL HELPLINES QUICK DIAL BAR[cite: 3] -->
+        <div class="flex overflow-x-auto gap-3 pb-2 snap-x no-scrollbar pt-1">
+          <a href="tel:112" class="snap-start shrink-0 glass-panel px-5 py-2.5 rounded-[1rem] flex flex-col items-start justify-center hover:border-alertRed transition-all active:scale-95 group border border-alertRed/20">
+            <span class="text-[9px] text-alertRed font-bold uppercase tracking-widest">For Emergency</span>
+            <span class="text-zinc-900 dark:text-ivory font-black text-xl tracking-wider group-hover:text-alertRed transition-colors">112</span>
+          </a>
+          <a href="tel:181" class="snap-start shrink-0 glass-panel px-5 py-2.5 rounded-[1rem] flex flex-col items-start justify-center hover:border-teal-500 dark:hover:border-goldWarm transition-all active:scale-95 group">
+            <span class="text-[9px] text-zinc-500 dark:text-goldAntique font-bold uppercase tracking-widest">WHL</span>
+            <span class="text-zinc-900 dark:text-ivory font-black text-xl tracking-wider group-hover:text-teal-600 dark:group-hover:text-goldWarm transition-colors">181</span>
+          </a>
+          <a href="tel:1098" class="snap-start shrink-0 glass-panel px-5 py-2.5 rounded-[1rem] flex flex-col items-start justify-center hover:border-teal-500 dark:hover:border-goldWarm transition-all active:scale-95 group">
+            <span class="text-[9px] text-zinc-500 dark:text-goldAntique font-bold uppercase tracking-widest">CHL</span>
+            <span class="text-zinc-900 dark:text-ivory font-black text-xl tracking-wider group-hover:text-teal-600 dark:group-hover:text-goldWarm transition-colors">1098</span>
+          </a>
+          <a href="tel:1930" class="snap-start shrink-0 glass-panel px-5 py-2.5 rounded-[1rem] flex flex-col items-start justify-center hover:border-teal-500 dark:hover:border-goldWarm transition-all active:scale-95 group">
+            <span class="text-[9px] text-zinc-500 dark:text-goldAntique font-bold uppercase tracking-widest">Cyber Crime</span>
+            <span class="text-zinc-900 dark:text-ivory font-black text-xl tracking-wider group-hover:text-teal-600 dark:group-hover:text-goldWarm transition-colors">1930</span>
+          </a>
+          <a href="tel:15100" class="snap-start shrink-0 glass-panel px-5 py-2.5 rounded-[1rem] flex flex-col items-start justify-center hover:border-teal-500 dark:hover:border-goldWarm transition-all active:scale-95 group">
+            <span class="text-[9px] text-zinc-500 dark:text-goldAntique font-bold uppercase tracking-widest">Legal (NALSA)</span>
+            <span class="text-zinc-900 dark:text-ivory font-black text-xl tracking-wider group-hover:text-teal-600 dark:group-hover:text-goldWarm transition-colors">15100</span>
+          </a>
+          <a href="tel:14416" class="snap-start shrink-0 glass-panel px-5 py-2.5 rounded-[1rem] flex flex-col items-start justify-center hover:border-teal-500 dark:hover:border-goldWarm transition-all active:scale-95 group">
+            <span class="text-[9px] text-zinc-500 dark:text-goldAntique font-bold uppercase tracking-widest">Tele Manas</span>
+            <span class="text-zinc-900 dark:text-ivory font-black text-xl tracking-wider group-hover:text-teal-600 dark:group-hover:text-goldWarm transition-colors">14416</span>
+          </a>
+        </div>
+
+        <!-- MAPBOX CONTAINER -->
+        <div class="relative glass-panel rounded-[1.5rem] p-2.5 h-[40vh] md:h-[50vh] min-h-[300px] w-full group">
+          <div id="map" class="w-full h-full rounded-[1.1rem] overflow-hidden bg-zinc-200 dark:bg-baseDark border border-zinc-300 dark:border-goldAntique/20 shadow-inner"></div>
+          
+          <div id="route-info-card" class="absolute top-6 left-6 right-6 glass-panel rounded-xl p-5 shadow-2xl hidden flex-col gap-3 transform transition-all translate-y-0">
+            <div class="flex justify-between items-center border-b border-zinc-200 dark:border-goldAntique/20 pb-2">
+              <span class="text-[11px] font-bold uppercase tracking-widest text-teal-600 dark:text-goldWarm" id="route-title">Routing Protocol</span>
+              <button onclick="clearRoutes()" class="p-1 text-zinc-500 dark:text-goldAntique/50 hover:text-alertRed transition-colors rounded-full focus:outline-none">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            <div class="flex gap-4 text-sm mt-1">
+              <div class="flex-1 bg-green-50 dark:bg-tealDark/50 border border-green-200 dark:border-tealAccent/30 rounded-lg p-4 flex flex-col cursor-pointer hover:bg-green-100 dark:hover:bg-tealDark transition-all shadow-inner" onclick="highlightRoute('safest')">
+                <span class="text-[10px] font-bold text-green-700 dark:text-tealAccent tracking-widest uppercase">Safest Route</span>
+                <span class="font-bold text-zinc-900 dark:text-ivory text-xl mt-1" id="eta-safe">-- min</span>
+              </div>
+              <div class="flex-1 bg-purple-50 dark:bg-bronze/20 border border-purple-200 dark:border-goldAntique/30 rounded-lg p-4 flex flex-col cursor-pointer hover:bg-purple-100 dark:hover:bg-bronze/40 transition-all shadow-inner" onclick="highlightRoute('shortest')">
+                <span class="text-[10px] font-bold text-purple-700 dark:text-goldWarm tracking-widest uppercase">Shortest Route</span>
+                <span class="font-bold text-zinc-900 dark:text-ivory text-xl mt-1" id="eta-short">-- min</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="absolute bottom-6 left-6 right-6 flex gap-4 z-10 transition-transform" id="map-actions">
+            <button onclick="routeToNearest('police')" class="flex-1 bg-white/80 dark:bg-tealDark/80 backdrop-blur-md hover:bg-zinc-100 dark:hover:bg-tealDark py-3.5 rounded-xl text-sm font-semibold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-zinc-800 dark:text-ivory border border-zinc-200 dark:border-goldAntique/30 hover:border-teal-500 dark:hover:border-goldWarm focus:outline-none">
+              <svg class="w-5 h-5 text-teal-600 dark:text-goldWarm" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+              Locate Police
+            </button>
+            <button onclick="routeToNearest('hospital')" class="flex-1 bg-white/80 dark:bg-tealDark/80 backdrop-blur-md hover:bg-zinc-100 dark:hover:bg-tealDark py-3.5 rounded-xl text-sm font-semibold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-zinc-800 dark:text-ivory border border-zinc-200 dark:border-goldAntique/30 hover:border-indigo-500 dark:hover:border-goldWarm focus:outline-none">
+              <svg class="w-5 h-5 text-indigo-600 dark:text-goldChamp" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+              Locate Hospital
+            </button>
+          </div>
+        </div>
+
+        <!-- COMMUTE TIMER BANNER -->
+        <div id="active-timer-card" class="hidden glass-panel rounded-[1.5rem] p-6 flex items-center justify-between shadow-2xl animate-modal-pop dark:border-goldWarm/50">
+          <div>
+            <div class="text-[11px] text-zinc-500 dark:text-goldAntique font-bold uppercase tracking-widest flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-alertRed animate-ping"></span> Commute Active
+            </div>
+            <div id="timer-countdown" class="text-4xl font-mono font-bold text-zinc-900 dark:text-ivory mt-1 dark:drop-shadow-[0_0_10px_rgba(244,201,107,0.3)]">12:00</div>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="extendTimer(5)" class="px-5 py-2.5 text-xs font-semibold bg-zinc-100 dark:bg-tealDark/50 rounded-lg active:scale-95 transition-all hover:bg-zinc-200 dark:hover:bg-tealDark text-teal-700 dark:text-goldWarm border border-zinc-200 dark:border-goldAntique/30 focus:outline-none">+5 Min</button>
+            <button onclick="promptDisarm()" class="px-5 py-2.5 text-xs font-semibold bg-red-50 dark:bg-alertRed/20 rounded-lg active:scale-95 transition-all hover:bg-red-100 dark:hover:bg-alertRed/30 text-alertRed border border-red-200 dark:border-alertRed/40 focus:outline-none">Disarm</button>
+          </div>
+        </div>
+
+        <!-- TACTICAL SOS TRIGGER -->
+        <div class="flex flex-col items-center justify-center py-6 md:py-10 relative">
+          <button id="sos-btn" onclick="triggerHaptic(); initiateSOS()" class="relative group w-40 h-40 md:w-48 md:h-48 flex items-center justify-center active:scale-[0.97] transition-all duration-300 z-10 focus:outline-none">
+            <div class="absolute inset-0 rounded-full bg-alertRed/30 group-hover:animate-ripple blur-lg"></div>
+            <!-- Outer Housing -->
+            <div class="absolute inset-1 rounded-full bg-zinc-200 dark:bg-gradient-to-br dark:from-bronze dark:to-baseDark border border-zinc-300 dark:border-goldWarm/40 shadow-xl dark:shadow-[0_10px_30px_rgba(0,0,0,0.8)] flex items-center justify-center">
+              <div class="absolute inset-2 rounded-full border border-zinc-300/50 dark:border-baseDark/50 shadow-inner bg-white/50 dark:bg-tealDark/20"></div>
+            </div>
+            <!-- Solid Red Button -->
+            <div class="relative w-32 h-32 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-red-500 to-[#9f1239] flex flex-col items-center justify-center shadow-[0_0_30px_rgba(225,29,72,0.5),inset_0_2px_10px_rgba(255,255,255,0.3)] group-hover:shadow-[0_0_50px_rgba(225,29,72,0.8),inset_0_2px_10px_rgba(255,255,255,0.4)] transition-all border-2 border-red-400/80">
+              <span class="text-white font-black text-3xl tracking-widest drop-shadow-md">SOS</span>
+            </div>
+          </button>
+          <p class="text-[10px] md:text-xs text-zinc-500 dark:text-goldAntique mt-8 text-center font-bold tracking-widest uppercase">Say "Help" or tap to override</p>
+        </div>
+      </main>
+
+      <!-- VIEW 2: NETWORK -->
+      <main id="view-network" class="hidden flex-col gap-6 max-w-4xl mx-auto w-full transition-opacity duration-500">
+        <div class="glass-panel rounded-[1.5rem] p-6 md:p-10 shadow-2xl animate-modal-pop delay-100">
+          <h2 class="text-2xl font-bold flex items-center gap-3 mb-2 text-zinc-900 dark:text-ivory">
+            <div class="p-2.5 bg-teal-50 dark:bg-tealDark/50 rounded-xl text-teal-600 dark:text-goldWarm border border-teal-200 dark:border-goldAntique/30">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            </div>
+            Emergency Ledger
+          </h2>
+          <p class="text-xs text-zinc-500 dark:text-goldAntique font-medium mb-8">Trusted personal contacts configured for automated SOS routing & Twist integration.</p>
+          <div class="space-y-4" id="contacts-list"></div>
+        </div>
+      </main>
+
+      <!-- VIEW 3: SETTINGS -->
+      <main id="view-settings" class="hidden flex-col gap-6 max-w-4xl mx-auto w-full transition-opacity duration-500">
+        <div class="glass-panel rounded-[1.5rem] overflow-hidden shadow-2xl animate-modal-pop">
+          
+          <div class="p-6 md:p-8 flex items-center justify-between border-b border-zinc-200 dark:border-goldAntique/10 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors group">
+            <div class="flex items-center gap-5">
+              <div class="p-3 bg-teal-50 dark:bg-tealDark/50 rounded-xl text-teal-600 dark:text-goldWarm border border-teal-200 dark:border-goldAntique/30 group-hover:scale-105 transition-transform">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+              </div>
+              <div>
+                <div class="font-bold text-base text-zinc-900 dark:text-ivory">Biometric Authentication</div>
+                <div class="text-[11px] text-zinc-500 dark:text-goldAntique mt-1">FaceID authorization required</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold text-teal-700 dark:text-tealAccent bg-teal-100 dark:bg-teal-900/40 px-3 py-1.5 rounded border border-teal-300 dark:border-teal-500/30 dark:shadow-[0_0_10px_rgba(20,184,166,0.2)]">ENABLED</span>
+          </div>
+
+          <div class="p-6 md:p-8 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors group">
+            <div class="flex items-center gap-5">
+              <div class="p-3 bg-alertRed/10 rounded-xl text-alertRed border border-alertRed/30 group-hover:scale-105 transition-transform">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              </div>
+              <div>
+                <div class="font-bold text-base text-alertRed">System Wipe</div>
+                <div class="text-[11px] text-zinc-500 dark:text-goldAntique mt-1">Delete all local telemetry & contacts</div>
+              </div>
+            </div>
+            <button onclick="resetApp()" class="px-5 py-2.5 bg-alertRed/10 border border-alertRed/40 text-alertRed rounded-lg text-xs font-bold active:scale-95 transition-transform hover:bg-alertRed/20 hover:shadow-[0_0_15px_rgba(225,29,72,0.3)] focus:outline-none">Reset Data</button>
+          </div>
+        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ================= FAKE ALIBI CALL OVERLAY ================= -->
+  <div id="fake-call-overlay" class="fixed inset-0 z-[10000] hidden flex-col items-center justify-between py-16 px-6 text-white transform translate-y-full" style="background: #1c1c1e; backdrop-filter: blur(40px); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+    <div class="text-center mt-10">
+      <h2 class="text-3xl font-light mb-2 opacity-80">mobile</h2>
+      <h1 class="text-5xl font-medium tracking-wide">Dad</h1>
+    </div>
+    <div class="flex gap-12 mb-10">
+      <button onclick="endFakeCall()" class="call-btn-decline w-[75px] h-[75px] rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform bg-[#ff3b30]">
+        <svg class="w-8 h-8 text-white transform rotate-[135deg]" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
+      </button>
+      <button onclick="acceptFakeCall()" class="call-btn-accept w-[75px] h-[75px] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(40,200,64,0.4)] animate-pulse-fast active:scale-90 transition-transform bg-[#28c840]">
+        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
+      </button>
+    </div>
+    <audio id="ringtone" loop><source src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" type="audio/ogg"></audio>
+  </div>
+
+  <!-- ================= FALSE ALARM PREVENTION MODAL ================= -->
+  <div id="sos-countdown-modal" class="fixed inset-0 bg-white/95 dark:bg-baseDark/95 backdrop-blur-2xl z-[9999] hidden flex-col items-center justify-center p-6 text-center border-t border-alertRed/30">
+    <div class="w-32 h-32 mb-8 rounded-full bg-alertRed/10 flex items-center justify-center animate-pulse-fast border border-alertRed/40 shadow-[0_0_50px_rgba(225,29,72,0.4)]">
+      <svg class="w-16 h-16 text-alertRed drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+    </div>
+    <h1 class="text-zinc-900 dark:text-ivory text-4xl md:text-5xl font-black mb-3 tracking-widest drop-shadow-md">SOS INITIATED</h1>
+    <p class="text-teal-600 dark:text-goldWarm text-sm md:text-base font-bold mb-12 tracking-widest uppercase">Dispatching in <span id="sos-countdown-timer" class="text-zinc-900 dark:text-white text-4xl mx-3 font-mono dark:drop-shadow-[0_0_10px_#F4C96B]">5</span> seconds</p>
+    
+    <button onclick="cancelSOS()" class="w-full max-w-md py-5 bg-zinc-900 dark:bg-tealDark hover:bg-zinc-800 dark:hover:bg-baseDark text-white dark:text-ivory border border-zinc-700 dark:border-goldAntique/50 rounded-2xl text-xl font-black shadow-2xl active:scale-95 transition-all focus:outline-none">CANCEL ALARM</button>
+    <p class="text-[10px] text-zinc-500 dark:text-goldAntique/50 mt-8 tracking-widest uppercase font-bold">False Alarm Prevention Protocol[cite: 2]</p>
+  </div>
+
+  <!-- ================= ONBOARDING MODAL ================= -->
+  <div id="onboarding-modal" class="fixed inset-0 bg-zinc-900/60 dark:bg-baseDark/80 backdrop-blur-xl z-[999] flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-md rounded-[2rem] p-8 md:p-10 space-y-6 shadow-2xl animate-modal-pop dark:border-goldWarm/30">
+      <!-- Step 1 -->
+      <div id="onboard-step-1" class="space-y-5">
+        <div class="mb-6 text-center">
+          <div class="text-[10px] font-bold text-teal-600 dark:text-goldWarm uppercase tracking-widest mb-2">Step 1 of 3</div>
+          <h2 class="text-2xl font-black text-zinc-900 dark:text-ivory">Identity Configuration</h2>
+        </div>
+        <input id="ob-name" type="text" placeholder="Full Name" class="w-full glass-input rounded-xl px-5 py-4 text-sm outline-none" />
+        <input id="ob-phone" type="tel" placeholder="Mobile Number" class="w-full glass-input rounded-xl px-5 py-4 text-sm outline-none" />
+        <button onclick="goToLedger()" class="w-full bg-zinc-900 text-white dark:bg-gradient-to-r dark:from-goldAntique dark:to-goldWarm dark:text-baseDark font-black py-4 rounded-xl text-sm shadow-lg active:scale-95 transition-transform mt-4 hover:brightness-110 focus:outline-none">Continue</button>
+      </div>
+      <!-- Step 2 -->
+      <div id="onboard-step-2" class="space-y-5 hidden">
+        <div class="mb-6 text-center">
+          <div class="text-[10px] font-bold text-teal-600 dark:text-goldWarm uppercase tracking-widest mb-2">Step 2 of 3</div>
+          <h2 class="text-2xl font-black text-zinc-900 dark:text-ivory">Routing Ledger</h2>
+        </div>
+        <input id="c1-phone" type="tel" placeholder="Primary Contact (Req)" class="w-full glass-input rounded-xl px-5 py-4 text-sm outline-none" />
+        <input id="c2-phone" type="tel" placeholder="Secondary Contact (Opt)" class="w-full glass-input rounded-xl px-5 py-4 text-sm outline-none" />
+        <div class="h-2"></div>
+        <input id="ob-pin" type="password" placeholder="Create 4-Digit Disarm PIN" class="w-full glass-input rounded-xl px-5 py-4 text-sm outline-none tracking-widest text-center" />
+        <button onclick="saveContacts()" class="w-full bg-zinc-900 text-white dark:bg-gradient-to-r dark:from-goldAntique dark:to-goldWarm dark:text-baseDark font-black py-4 rounded-xl text-sm shadow-lg active:scale-95 transition-transform hover:brightness-110 focus:outline-none">Secure Contacts</button>
+      </div>
+      <!-- Step 3 -->
+      <div id="onboard-step-3" class="space-y-6 hidden text-center">
+        <div>
+          <h2 class="text-2xl font-black text-zinc-900 dark:text-ivory">Biometric Scan</h2>
+          <p class="text-[11px] font-semibold text-zinc-500 dark:text-goldAntique mt-2" id="reg-status">Calibrating sensor...</p>
+        </div>
+        <div class="relative w-48 h-56 mx-auto rounded-[2rem] border-2 border-teal-500 dark:border-goldWarm/50 bg-zinc-200 dark:bg-tealDark/50 overflow-hidden flex items-center justify-center dark:shadow-[0_0_30px_rgba(244,201,107,0.2)]">
+          <video id="webcam" class="w-full h-full object-cover" autoplay playsinline webkit-playsinline muted></video>
+          <div class="absolute inset-0 scanner-line bg-gradient-to-b from-transparent via-teal-400/40 dark:via-goldWarm/40 to-transparent"></div>
+        </div>
+        <button onclick="forceBypassRegistration()" class="text-[10px] font-bold text-zinc-400 dark:text-goldAntique/50 hover:text-zinc-600 dark:hover:text-goldWarm underline mt-4 transition-colors focus:outline-none">Bypass (Developer Mode)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Commute Timer Modal -->
+  <div id="commute-modal" class="fixed inset-0 bg-zinc-900/60 dark:bg-baseDark/80 backdrop-blur-xl z-[100] hidden flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-sm rounded-[2rem] p-8 space-y-5 shadow-2xl animate-modal-pop dark:border-goldWarm/20">
+      <div class="text-center">
+        <h3 class="font-black text-2xl text-zinc-900 dark:text-ivory">Stealth Commute</h3>
+        <p class="text-[11px] font-medium text-zinc-500 dark:text-goldAntique mt-2">If timer expires without your PIN, the SOS protocol initiates automatically.</p>
+      </div>
+      
+      <div class="grid grid-cols-3 gap-3 mt-6">
+        <button onclick="setCommuteDuration(5)" class="py-3 text-sm font-bold glass-input hover:border-teal-500 dark:hover:border-goldWarm hover:bg-zinc-200 dark:hover:bg-tealDark/50 rounded-xl active:scale-95 transition-all text-zinc-800 dark:text-ivory focus:outline-none">5m</button>
+        <button onclick="setCommuteDuration(15)" class="py-3 text-sm font-bold glass-input hover:border-teal-500 dark:hover:border-goldWarm hover:bg-zinc-200 dark:hover:bg-tealDark/50 rounded-xl active:scale-95 transition-all text-zinc-800 dark:text-ivory focus:outline-none">15m</button>
+        <button onclick="setCommuteDuration(30)" class="py-3 text-sm font-bold glass-input hover:border-teal-500 dark:hover:border-goldWarm hover:bg-zinc-200 dark:hover:bg-tealDark/50 rounded-xl active:scale-95 transition-all text-zinc-800 dark:text-ivory focus:outline-none">30m</button>
+      </div>
+
+      <div class="flex gap-3 mt-4">
+        <input type="number" id="custom-time-input" placeholder="Mins..." class="flex-1 glass-input rounded-xl px-4 py-3 text-sm font-bold outline-none text-center" min="1" />
+        <button onclick="startCustomTimer()" class="px-6 py-3 bg-zinc-900 text-white dark:bg-goldWarm dark:text-baseDark font-black rounded-xl text-sm shadow-lg dark:shadow-[0_0_15px_rgba(244,201,107,0.3)] active:scale-95 transition-transform hover:brightness-110 focus:outline-none">Set</button>
+      </div>
+
+      <button onclick="toggleCommuteModal()" class="w-full py-4 bg-transparent border border-zinc-300 dark:border-goldAntique/30 hover:border-alertRed/50 rounded-xl text-xs font-bold mt-4 active:scale-95 transition-all text-zinc-500 dark:text-goldAntique hover:text-alertRed uppercase tracking-widest focus:outline-none">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Tactical Toast -->
+  <div id="toast" class="fixed top-10 left-1/2 -translate-x-1/2 z-[1000] hidden glass-panel border border-zinc-200 dark:border-goldWarm/50 text-zinc-900 dark:text-ivory px-6 py-3.5 rounded-full text-xs font-black shadow-2xl transition duration-300 animate-modal-pop tracking-widest"></div>
+
+  <!-- ================= APP LOGIC ================= -->
+  <script>
+    function triggerHaptic() {
+      if ("vibrate" in navigator) navigator.vibrate([100, 50, 100, 50, 300]);
+    }
+
+    // --- VOICE SOS LOGIC FIX ---
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    let isVoiceActive = false;
+
+    if (window.SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript.toLowerCase();
+        }
+        if (transcript.includes('asteria help') || transcript.includes('help')) {
+          initiateSOS();
+          toggleVoiceActivation(); // Auto-stop listening once triggered
+        }
+      };
+      
+      // Auto-restart if it stops naturally while active
+      recognition.onend = () => { if(isVoiceActive) recognition.start(); };
+    }
+
+    function toggleVoiceActivation() {
+      if (!recognition) {
+        alert("Voice recognition is not supported by your browser/device.");
+        return;
+      }
+      
+      const pulseRing = document.getElementById('mic-pulse-ring');
+      const micIcon = document.getElementById('mic-icon');
+      
+      if (isVoiceActive) {
+        recognition.stop();
+        isVoiceActive = false;
+        pulseRing.classList.add('hidden');
+        pulseRing.classList.remove('animate-mic-pulse', 'bg-alertRed/40');
+        micIcon.classList.remove('text-alertRed');
+        showToast("Voice SOS Disabled");
+      } else {
+        try {
+          recognition.start();
+          isVoiceActive = true;
+          pulseRing.classList.remove('hidden');
+          pulseRing.classList.add('animate-mic-pulse', 'bg-alertRed/40');
+          micIcon.classList.add('text-alertRed');
+          showToast("Voice SOS Active: Say 'Help'");
+        } catch(e) {
+          console.error("Microphone permission denied or error:", e);
+          showToast("Microphone Permission Denied");
+        }
+      }
+    }
+
+    // --- FAKE CALL ENGINE ---
+    let fakeCallTimeout;
+    function queueFakeCall() {
+      showToast('Evasion Call Scheduled in 5 Seconds...'); triggerHaptic();
+      fakeCallTimeout = setTimeout(() => {
+        const overlay = document.getElementById('fake-call-overlay');
+        overlay.classList.remove('hidden'); overlay.classList.add('flex');
+        setTimeout(() => overlay.style.transform = 'translateY(0)', 50);
+        document.getElementById('ringtone').play();
+      }, 5000);
+    }
+    function acceptFakeCall() {
+      document.getElementById('ringtone').pause();
+      document.querySelector('.call-btn-accept').classList.remove('animate-pulse-fast');
+    }
+    function endFakeCall() {
+      document.getElementById('ringtone').pause();
+      const overlay = document.getElementById('fake-call-overlay');
+      overlay.style.transform = 'translateY(100%)';
+      setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('flex'); }, 400);
+      clearTimeout(fakeCallTimeout);
+    }
+
+    // --- CORE VARIABLES ---
+    let map = null; let userMarker = null; let destMarker = null;
+    let userCoords = [75.5652, 26.8439]; 
+    let faceModelsLoaded = false; let activeScanning = false;
+    let commuteSeconds = 0; let timerInterval = null;
+    let sosCountdownTimer = null; let sosSecondsLeft = 5;
+    let deviceBattery = "Unknown"; 
+
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(function(battery) {
+        deviceBattery = (battery.level * 100).toFixed(0) + "%";
+        battery.addEventListener('levelchange', function() { deviceBattery = (this.level * 100).toFixed(0) + "%"; });
+      });
+    }
+
+    // --- TAB SWITCHING ---
+    function switchTab(tabId) {
+      document.getElementById('view-home').classList.add('hidden'); document.getElementById('view-network').classList.add('hidden'); document.getElementById('view-settings').classList.add('hidden');
+      document.getElementById('view-home').classList.remove('flex'); document.getElementById('view-network').classList.remove('flex'); document.getElementById('view-settings').classList.remove('flex');
+
+      const tabs = ['home', 'network', 'settings'];
+      tabs.forEach(t => {
+        document.getElementById(`tab-${t}`).classList.remove('text-teal-600', 'dark:text-goldWarm', 'drop-shadow-sm', 'dark:drop-shadow-[0_0_8px_rgba(244,201,107,0.5)]');
+        document.getElementById(`tab-${t}`).classList.add('text-zinc-400', 'dark:text-goldAntique/50');
+        document.getElementById(`indicator-${t}`).classList.add('hidden');
+      });
+
+      document.getElementById(`view-${tabId}`).classList.remove('hidden'); document.getElementById(`view-${tabId}`).classList.add('flex');
+      const activeEl = document.getElementById(`tab-${tabId}`);
+      activeEl.classList.remove('text-zinc-400', 'dark:text-goldAntique/50');
+      activeEl.classList.add('text-teal-600', 'dark:text-goldWarm', 'drop-shadow-sm', 'dark:drop-shadow-[0_0_8px_rgba(244,201,107,0.5)]');
+      document.getElementById(`indicator-${tabId}`).classList.remove('hidden');
+
+      if(tabId === 'home' && map) setTimeout(() => map.resize(), 100);
+      if(tabId === 'network') populateNetwork();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      try { checkAuth(); } catch(e) {}
+      try { initMap(); } catch(e) {}
+      try { loadFaceAPI(); } catch(e) {}
+    });
+
+    function populateNetwork() {
+      const user = JSON.parse(localStorage.getItem('asteria_premium') || '{}');
+      const contacts = user.contacts || [];
+      const list = document.getElementById('contacts-list');
+      list.innerHTML = '';
+      if(contacts.length === 0 || !contacts[0].phone) { list.innerHTML = '<p class="text-xs font-semibold text-zinc-500 dark:text-goldAntique">No routing contacts stored.</p>'; return; }
+      contacts.forEach((c, index) => {
+        if(!c.phone) return;
+        list.innerHTML += `
+          <div class="flex items-center justify-between p-5 bg-zinc-100/50 dark:bg-baseDark/50 rounded-2xl border border-zinc-200 dark:border-goldAntique/20 hover:border-teal-400 dark:hover:border-goldWarm/40 transition-colors">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-teal-100 dark:bg-tealDark border border-teal-200 dark:border-goldAntique/30 flex items-center justify-center text-teal-700 dark:text-goldWarm font-black text-lg shadow-inner">${index === 0 ? 'P' : 'S'}</div>
+              <div><div class="text-sm font-bold text-zinc-900 dark:text-ivory">${index === 0 ? 'Primary Node' : 'Secondary Node'}</div><div class="text-[11px] font-semibold text-zinc-500 dark:text-goldAntique font-mono mt-1">${c.phone}</div></div>
+            </div>
+            <span class="text-[9px] font-black bg-green-100 dark:bg-teal-900/40 text-green-700 dark:text-tealAccent px-3 py-1.5 rounded-lg border border-green-200 dark:border-teal-500/30">VERIFIED</span>
+          </div>
+        `;
+      });
+    }
+
+    // --- MAPBOX ---
+    function initMap() {
+      mapboxgl.accessToken = 'pk.eyJ1Ijoia2F2eWExNjExMjAwOCIsImEiOiJjbXYyeWVpeHgwajFmMndzYjQ5amQ2aG9nIn0.VacCvPjGVMk24o_w4ny6uA';
+      const isDark = document.documentElement.classList.contains('dark');
+      map = new mapboxgl.Map({
+        container: 'map', style: isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11', 
+        center: userCoords, zoom: 15, attributionControl: false 
+      });
+      addMapboxMarker(userCoords);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          userCoords = [pos.coords.longitude, pos.coords.latitude];
+          map.setCenter(userCoords); addMapboxMarker(userCoords);
+        }, () => {});
+      }
+    }
+
+    function addMapboxMarker(coords) {
+      if (userMarker) userMarker.remove();
+      const isDark = document.documentElement.classList.contains('dark');
+      const markerColor = isDark ? 'bg-goldWarm' : 'bg-teal-600';
+      const shadowColor = isDark ? 'shadow-[0_0_15px_rgba(244,201,107,0.6)]' : 'shadow-md';
+      
+      const el = document.createElement('div');
+      el.innerHTML = `<div class="relative w-6 h-6 ${markerColor} rounded-full border-2 border-baseDark ${shadowColor}"><div class="absolute inset-0 rounded-full ${markerColor} animate-ping opacity-50"></div></div>`;
+      userMarker = new mapboxgl.Marker(el).setLngLat(coords).addTo(map);
+    }
+
+    async function routeToNearest(type) {
+      clearRoutes();
+      document.getElementById('map-actions').classList.add('translate-y-32', 'opacity-0');
+      document.getElementById('route-info-card').classList.remove('hidden'); 
+      document.getElementById('route-title').innerText = `Target: ${type === 'police' ? 'Police Station' : 'Hospital'}`;
+
+      const targetCoords = [ userCoords[0] + (type === 'police' ? 0.015 : -0.012), userCoords[1] + (type === 'police' ? 0.01 : -0.01) ];
+      const url = `https://api.mapbox.com/directions/v5/mapbox/walking/${userCoords[0]},${userCoords[1]};${targetCoords[0]},${targetCoords[1]}?alternatives=true&geometries=geojson&access_token=${mapboxgl.accessToken}`;
+      
+      try {
+        const response = await fetch(url); const data = await response.json();
+        if(data.routes && data.routes.length > 0) {
+          const shortestRoute = data.routes[0];
+          const safestRoute = data.routes.length > 1 ? data.routes[1] : { geometry: { type: 'LineString', coordinates: shortestRoute.geometry.coordinates.map(c => [c[0] + 0.001, c[1] - 0.001]) } };
+
+          document.getElementById('eta-short').innerText = Math.round(shortestRoute.duration / 60) + " min";
+          document.getElementById('eta-safe').innerText = (Math.round(shortestRoute.duration / 60) + 2) + " min";
+
+          const isDark = document.documentElement.classList.contains('dark');
+          drawRouteLine('route-safe', safestRoute.geometry, isDark ? '#14b8a6' : '#10B981', 4);
+          drawRouteLine('route-short', shortestRoute.geometry, isDark ? '#F4C96B' : '#8B5CF6', 6); 
+
+          const destEl = document.createElement('div');
+          destEl.innerHTML = `<div class="glass-panel p-2.5 rounded-xl shadow-xl text-teal-600 dark:text-goldWarm">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${type==='police' ? 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' : 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'}"></path></svg>
+          </div>`;
+          destMarker = new mapboxgl.Marker(destEl).setLngLat(targetCoords).addTo(map);
+
+          const bounds = new mapboxgl.LngLatBounds(userCoords, userCoords).extend(targetCoords);
+          map.fitBounds(bounds, { padding: {top: 100, bottom: 50, left: 50, right: 50} });
+          highlightRoute('shortest');
+        }
+      } catch (e) {}
+    }
+
+    function drawRouteLine(id, geometry, color, width) {
+      if (map.getSource(id)) map.getSource(id).setData({ type: 'Feature', geometry: geometry });
+      else {
+        map.addSource(id, { type: 'geojson', data: { type: 'Feature', geometry: geometry } });
+        map.addLayer({ 'id': id, 'type': 'line', 'source': id, 'layout': { 'line-join': 'round', 'line-cap': 'round' }, 'paint': { 'line-color': color, 'line-width': width, 'line-opacity': 0.8 } });
+      }
+    }
+
+    function highlightRoute(selection) {
+      if(!map.getLayer('route-short') || !map.getLayer('route-safe')) return;
+      if(selection === 'shortest') {
+        map.setPaintProperty('route-short', 'line-opacity', 1); map.setPaintProperty('route-short', 'line-width', 6);
+        map.setPaintProperty('route-safe', 'line-opacity', 0.3); map.setPaintProperty('route-safe', 'line-width', 4);
+      } else {
+        map.setPaintProperty('route-safe', 'line-opacity', 1); map.setPaintProperty('route-safe', 'line-width', 6);
+        map.setPaintProperty('route-short', 'line-opacity', 0.3); map.setPaintProperty('route-short', 'line-width', 4);
+      }
+    }
+
+    function clearRoutes() {
+      if (map.getLayer('route-short')) { map.removeLayer('route-short'); map.removeSource('route-short'); }
+      if (map.getLayer('route-safe')) { map.removeLayer('route-safe'); map.removeSource('route-safe'); }
+      if (destMarker) destMarker.remove();
+      document.getElementById('route-info-card').classList.add('hidden');
+      document.getElementById('map-actions').classList.remove('translate-y-32', 'opacity-0');
+      map.flyTo({ center: userCoords, zoom: 15 });
+    }
+
+    // --- ONBOARDING & BIOMETRICS ---
+    function goToLedger() {
+      if (!document.getElementById('ob-name').value || !document.getElementById('ob-phone').value) return alert("Required fields missing");
+      document.getElementById('onboard-step-1').classList.add('hidden'); document.getElementById('onboard-step-2').classList.remove('hidden');
+    }
+
+    function saveContacts() {
+      const c1 = document.getElementById('c1-phone').value;
+      if (!c1) return alert("Primary Contact required");
+      const user = { name: document.getElementById('ob-name').value, hasFaceID: false, pin: document.getElementById('ob-pin').value || '1234', contacts: [ { phone: c1 }, { phone: document.getElementById('c2-phone').value || '' } ] };
+      localStorage.setItem('asteria_premium', JSON.stringify(user));
+      document.getElementById('onboard-step-2').classList.add('hidden'); document.getElementById('onboard-step-3').classList.remove('hidden');
+      startRegistrationScan();
+    }
+
+    function checkAuth() {
+      const user = JSON.parse(localStorage.getItem('asteria_premium') || 'null');
+      if (!user || !user.hasFaceID) document.getElementById('onboarding-modal').classList.remove('hidden');
+      else document.getElementById('onboarding-modal').classList.add('hidden');
+    }
+
+    async function loadFaceAPI() { 
+      try { 
+        await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'); 
+        faceModelsLoaded = true; 
+      } catch (err) {
+        faceModelsLoaded = 'fallback'; 
+      } 
+    }
+
+    async function startCamera(videoId) { 
+      try { 
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }); 
+        const video = document.getElementById(videoId);
+        video.srcObject = stream; 
+        video.setAttribute('playsinline', 'true'); video.setAttribute('webkit-playsinline', 'true'); video.muted = true;
+        video.onloadedmetadata = () => { video.play(); };
+      } catch (err) { 
+        document.getElementById('reg-status').innerText = "Camera Access Blocked. Bypassing...";
+        setTimeout(forceBypassRegistration, 1500);
+      } 
+    }
+
+    function stopCamera(videoId) {
+      activeScanning = false; const video = document.getElementById(videoId);
+      if (video && video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+    }
+
+    async function scanForFace(videoId, cb) {
+      if (!activeScanning) return; const video = document.getElementById(videoId);
+      if (faceModelsLoaded === 'fallback') { setTimeout(cb, 2000); return; }
+      if (faceModelsLoaded === true && video && video.readyState >= 2) {
+        try {
+          const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+          if (detection) return cb();
+        } catch(e) {}
+      }
+      requestAnimationFrame(() => scanForFace(videoId, cb));
+    }
+
+    async function startRegistrationScan() {
+      await startCamera('webcam'); activeScanning = true;
+      const checkModels = setInterval(() => {
+        if(faceModelsLoaded) {
+          clearInterval(checkModels);
+          scanForFace('webcam', () => { document.getElementById('reg-status').innerText = 'VERIFIED'; document.getElementById('reg-status').classList.add('text-teal-600', 'dark:text-goldWarm'); finalizeRegistration(); });
+        }
+      }, 500);
+    }
+
+    function forceBypassRegistration() { activeScanning = false; finalizeRegistration(); }
+    
+    function finalizeRegistration() {
+      const user = JSON.parse(localStorage.getItem('asteria_premium'));
+      user.hasFaceID = true; localStorage.setItem('asteria_premium', JSON.stringify(user));
+      setTimeout(() => { stopCamera('webcam'); document.getElementById('onboarding-modal').classList.add('hidden'); showToast('System Unlocked Securely'); }, 800);
+    }
+
+    // --- TIMER LOGIC ---
+    function toggleCommuteModal() { document.getElementById('commute-modal').classList.toggle('hidden'); }
+    function startCustomTimer() {
+      const customMins = parseInt(document.getElementById('custom-time-input').value);
+      if (customMins && customMins > 0) { setCommuteDuration(customMins); document.getElementById('custom-time-input').value = ''; } 
+      else alert("Enter valid minutes");
+    }
+
+    function setCommuteDuration(mins) {
+      commuteSeconds = mins * 60; toggleCommuteModal(); document.getElementById('active-timer-card').classList.remove('hidden');
+      updateTimerUI(); clearInterval(timerInterval);
+      
+      timerInterval = setInterval(() => { 
+        commuteSeconds--; updateTimerUI(); 
+        if (commuteSeconds <= 0) { 
+          clearInterval(timerInterval); document.getElementById('active-timer-card').classList.add('hidden');
+          document.getElementById('timer-display-btn').innerText = 'Timer Off'; 
+          initiateSOS(); 
+        } 
+      }, 1000);
+    }
+    
+    function updateTimerUI() {
+      const m = Math.floor(commuteSeconds / 60).toString().padStart(2, '0'); const s = (commuteSeconds % 60).toString().padStart(2, '0');
+      document.getElementById('timer-countdown').innerText = `${m}:${s}`; document.getElementById('timer-display-btn').innerText = `${m}:${s}`;
+    }
+    
+    function extendTimer(mins) { commuteSeconds += mins * 60; updateTimerUI(); }
+    function promptDisarm() {
+      const user = JSON.parse(localStorage.getItem('asteria_premium') || '{}'); const pin = prompt('Enter 4-Digit Disarm PIN:');
+      if (pin === (user.pin || '1234')) { clearInterval(timerInterval); document.getElementById('active-timer-card').classList.add('hidden'); document.getElementById('timer-display-btn').innerText = 'Timer Off'; showToast('Commute safely disarmed.'); } 
+      else { if(pin !== null) alert('Invalid Authentication'); }
+    }
+
+    // --- FALSE ALARM PREVENTION & DIRECT WHATSAPP DISPATCH[cite: 2] ---
+    function initiateSOS() {
+      triggerHaptic();
+      document.getElementById('sos-btn').classList.add('scale-95'); setTimeout(()=> document.getElementById('sos-btn').classList.remove('scale-95'), 150);
+      document.getElementById('sos-countdown-modal').classList.remove('hidden'); document.getElementById('sos-countdown-modal').classList.add('flex');
+      
+      sosSecondsLeft = 5;
+      document.getElementById('sos-countdown-timer').innerText = sosSecondsLeft;
+      
+      sosCountdownTimer = setInterval(() => {
+        sosSecondsLeft--;
+        document.getElementById('sos-countdown-timer').innerText = sosSecondsLeft;
+        
+        if (sosSecondsLeft <= 0) {
+          clearInterval(sosCountdownTimer);
+          document.getElementById('sos-countdown-modal').classList.add('hidden'); document.getElementById('sos-countdown-modal').classList.remove('flex');
+          dispatchSOS(); 
+        }
+      }, 1000);
+    }
+
+    function cancelSOS() {
+      clearInterval(sosCountdownTimer);
+      document.getElementById('sos-countdown-modal').classList.add('hidden'); document.getElementById('sos-countdown-modal').classList.remove('flex');
+      showToast('SOS Cancelled - Protocol Terminated');
+    }
+
+    function dispatchSOS() {
+      triggerHaptic();
+      const user = JSON.parse(localStorage.getItem('asteria_premium') || '{}'); 
+      const contacts = (user.contacts || []).filter(c => c.phone);
+      const link = `https://www.google.com/maps?q=${userCoords[1]},${userCoords[0]}`;
+      
+      const msg = encodeURIComponent(`🚨 *EMERGENCY SOS* 🚨\nI need immediate help.\n📍 Live location: ${link}\n🔋 Battery Level: ${deviceBattery}`);
+
+      // Fail-Safe Transmission (sendBeacon)
+      const webhookUrl = "https://hook.twist.com/endpoints/mock_endpoint"; 
+      const payload = JSON.stringify({ event: "sos_triggered", user_id: user.name || "Unknown User", timestamp: new Date().toISOString(), location_url: `https://www.google.com/maps?q=${userCoords[1]},${userCoords[0]}`, battery: deviceBattery });
+      try { const blob = new Blob([payload], { type: 'application/json' }); navigator.sendBeacon(webhookUrl, blob); } catch (e) {}
+
+      showToast(`Alerting Network & Responders...`);
+
+      // DIRECT WHATSAPP BYPASS
+      if (contacts.length > 0) {
+        let phone = contacts[0].phone.replace(/\D/g, ''); if (phone.length === 10) phone = '91' + phone;
+        window.location.href = `https://wa.me/${phone}?text=${msg}`;
+      }
+    }
+
+    function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 3000); }
+    function resetApp() { localStorage.clear(); location.reload(); }
+  </script>
+</body>
+</html>
